@@ -6,11 +6,15 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      MYSQL_HOST: mysql
+      REDIS_HOST: redis
     depends_on:
       mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
+    
 
   mysql:
     image: mysql:8.0
@@ -40,6 +44,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+  
+  
 
 volumes:
   mysql_data:
