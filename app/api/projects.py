@@ -1,7 +1,7 @@
 """
-Project API（Day4 Step1）
-- POST /workspaces/{workspace_id}/projects：创建项目（必须是 workspace 成员）
-- GET  /workspaces/{workspace_id}/projects：列出项目（必须是 workspace 成员）
+Project API（RBAC 版）
+- POST /workspaces/{workspace_id}/projects：创建项目（MEMBER+）
+- GET  /workspaces/{workspace_id}/projects：列出项目（GUEST+）
 """
 
 from fastapi import APIRouter, Depends
@@ -10,9 +10,10 @@ from sqlalchemy import select
 
 from app.db.session import get_db
 from app.core.deps import get_current_user
-from app.core.workspace_deps import require_workspace_member
+from app.core.rbac import require_role
 from app.models.user import User
 from app.models.project import Project
+from app.models.workspace import WorkspaceRole
 from app.schemas.project import ProjectCreateIn, ProjectOut
 
 router = APIRouter(prefix="/workspaces/{workspace_id}/projects", tags=["projects"])
@@ -25,8 +26,8 @@ def create_project(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    # ✅ 强制隔离：只有 workspace 成员可以在该 workspace 下创建项目
-    _ = require_workspace_member(workspace_id, db, user)
+    # ✅ 写操作：至少 MEMBER
+    _ = require_role(workspace_id, WorkspaceRole.MEMBER, db, user)
 
     p = Project(
         workspace_id=workspace_id,
@@ -52,8 +53,8 @@ def list_projects(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    # ✅ 强制隔离：不是成员就不给看
-    _ = require_workspace_member(workspace_id, db, user)
+    # ✅ 读操作：GUEST 也允许（只要是成员）
+    _ = require_role(workspace_id, WorkspaceRole.GUEST, db, user)
 
     rows = db.execute(
         select(Project)

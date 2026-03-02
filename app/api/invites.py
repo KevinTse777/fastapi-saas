@@ -17,7 +17,8 @@ from app.models.user import User
 from app.models.workspace import Invite, InviteStatus, WorkspaceMember, WorkspaceRole
 from app.schemas.workspace import InviteCreateIn, InviteOut, InviteAcceptIn
 from app.core.workspace_deps import require_workspace_owner
-
+from app.core.rbac import require_role
+from app.models.workspace import WorkspaceRole
 router = APIRouter(tags=["invites"])
 
 
@@ -33,8 +34,8 @@ def create_invite(
     - 生成随机 token
     - expires_at 统一用 UTC naive（MySQL 默认不存 tzinfo）
     """
-    _ = require_workspace_owner(workspace_id, db, user)
-
+    # 允许 OWNER/ADMIN 邀请
+    _ = require_role(workspace_id, WorkspaceRole.ADMIN, db, user)
 
     token = secrets.token_urlsafe(24)
     expires_at = datetime.utcnow() + timedelta(days=3)  # ✅ naive UTC
