@@ -35,6 +35,7 @@ class InviteOut(BaseModel):
     status: str
     expires_at: datetime
     created_at: datetime
+    role: str
 
 
 class InviteAcceptIn(BaseModel):

@@ -35,15 +35,22 @@ def create_invite(
     """
     _ = require_workspace_owner(workspace_id, db, user)
 
+
     token = secrets.token_urlsafe(24)
     expires_at = datetime.utcnow() + timedelta(days=3)  # ✅ naive UTC
 
+    try:
+        invite_role = WorkspaceRole(payload.role)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid role. Use OWNER/ADMIN/MEMBER/GUEST")
+    
     inv = Invite(
         workspace_id=workspace_id,
         email=str(payload.email),
         token=token,
         status=InviteStatus.PENDING,
         expires_at=expires_at,
+        role=invite_role
     )
     db.add(inv)
     db.commit()
@@ -57,6 +64,7 @@ def create_invite(
         status=inv.status.value,
         expires_at=inv.expires_at,
         created_at=inv.created_at,
+        role=inv.role.value,
     )
 
 
@@ -102,7 +110,7 @@ def accept_invite(
         m = WorkspaceMember(
             workspace_id=inv.workspace_id,
             user_id=user.id,
-            role=WorkspaceRole.MEMBER,
+            role=inv.role,  # ✅ 按邀请指定的角色加入,
         )
         db.add(m)
 
@@ -110,3 +118,4 @@ def accept_invite(
     db.commit()
 
     return {"status": "ok", "workspace_id": inv.workspace_id}
+            

@@ -112,6 +112,13 @@ class Invite(Base):
         default=InviteStatus.PENDING,
     )
 
+    # 邀请加入后给的默认角色（由邀请者决定）
+    role: Mapped[WorkspaceRole] = mapped_column(
+        Enum(WorkspaceRole),
+        nullable=False,
+        default=WorkspaceRole.MEMBER,
+    )
+
     # 过期时间
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
@@ -120,3 +127,5 @@ class Invite(Base):
         server_default=func.now(),
         nullable=False,
     )
+
+
