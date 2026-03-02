@@ -9,6 +9,7 @@ from app.api.invites import router as invites_router
 from app.api.projects import router as projects_router
 from app.api.tasks import router as tasks_router
 from app.api.dashboard import router as dashboard_router
+from app.api.audit_logs import router as audit_router
 
 
 def create_app() -> FastAPI:
@@ -22,6 +23,7 @@ def create_app() -> FastAPI:
     app.include_router(projects_router)
     app.include_router(tasks_router)
     app.include_router(dashboard_router)
+    app.include_router(audit_router)
 
     return app
 

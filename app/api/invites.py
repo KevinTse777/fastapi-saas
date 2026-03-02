@@ -19,6 +19,7 @@ from app.schemas.workspace import InviteCreateIn, InviteOut, InviteAcceptIn
 from app.core.workspace_deps import require_workspace_owner
 from app.core.rbac import require_role
 from app.models.workspace import WorkspaceRole
+from app.services.audit import write_audit
 router = APIRouter(tags=["invites"])
 
 
@@ -56,6 +57,16 @@ def create_invite(
     db.add(inv)
     db.commit()
     db.refresh(inv)
+    write_audit(
+    db=db,
+    workspace_id=workspace_id,
+    actor_id=user.id,
+    action="INVITE_CREATE",
+    entity_type="invite",
+    entity_id=inv.id,
+    meta={"email": inv.email, "role": inv.role.value},
+)
+    db.commit()
 
     return InviteOut(
         id=inv.id,
@@ -116,6 +127,17 @@ def accept_invite(
         db.add(m)
 
     inv.status = InviteStatus.ACCEPTED
+    db.commit()
+    # accept_invite 里，inv.status = ACCEPTED 并 commit 后
+    write_audit(
+        db=db,
+        workspace_id=inv.workspace_id,
+        actor_id=user.id,
+        action="INVITE_ACCEPT",
+        entity_type="invite",
+        entity_id=inv.id,
+        meta={"email": inv.email},
+    )
     db.commit()
 
     return {"status": "ok", "workspace_id": inv.workspace_id}

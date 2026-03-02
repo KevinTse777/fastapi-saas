@@ -15,7 +15,7 @@ from app.models.user import User
 from app.models.workspace import Workspace, WorkspaceMember, WorkspaceRole
 from app.schemas.workspace import WorkspaceCreateIn, WorkspaceOut, MemberOut
 from app.core.workspace_deps import require_workspace_member
-
+from app.services.audit import write_audit
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
 
 
@@ -41,6 +41,17 @@ def create_workspace(
         role=WorkspaceRole.OWNER,
     )
     db.add(owner_member)
+    db.commit()
+    # 记录审计日志
+    write_audit(
+        db=db,
+        workspace_id=ws.id,
+        actor_id=user.id,
+        action="WORKSPACE_CREATE",
+        entity_type="workspace",
+        entity_id=ws.id,
+        meta={"name": ws.name},
+    )
     db.commit()
 
     return WorkspaceOut(id=ws.id, name=ws.name, owner_id=ws.owner_id, created_at=ws.created_at)

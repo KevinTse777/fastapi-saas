@@ -15,7 +15,7 @@ from app.models.user import User
 from app.models.project import Project
 from app.models.workspace import WorkspaceRole
 from app.schemas.project import ProjectCreateIn, ProjectOut
-
+from app.services.audit import write_audit
 router = APIRouter(prefix="/workspaces/{workspace_id}/projects", tags=["projects"])
 
 
@@ -37,6 +37,16 @@ def create_project(
     db.add(p)
     db.commit()
     db.refresh(p)
+    write_audit(
+        db=db,
+        workspace_id=workspace_id,
+        actor_id=user.id,
+        action="PROJECT_CREATE",
+        entity_type="project",
+        entity_id=p.id,
+        meta={"name": p.name},
+    )
+    db.commit()
 
     return ProjectOut(
         id=p.id,
