@@ -18,6 +18,14 @@ class Settings(BaseSettings):
 
     jwt_secret: str = "jofeswfoi"
     jwt_alg: str = "HS256"
+    ai_storage_dir: str = "data/uploads"
+    ai_chunk_size: int = 700
+    ai_chunk_overlap: int = 100
+    ai_retrieval_top_k: int = 5
+    llm_provider: str = "deterministic"
+    llm_api_key: str | None = None
+    llm_base_url: str | None = None
+    llm_model: str = "gpt-4o-mini"
 
     @property
     def mysql_dsn(self) -> str:

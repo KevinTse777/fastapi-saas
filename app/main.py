@@ -10,6 +10,10 @@ from app.api.projects import router as projects_router
 from app.api.tasks import router as tasks_router
 from app.api.dashboard import router as dashboard_router
 from app.api.audit_logs import router as audit_router
+from app.api.ai_documents import router as ai_documents_router
+from app.api.ai_chat import router as ai_chat_router
+from app.api.ai_agents import router as ai_agents_router
+from app.api.ai_runs import router as ai_runs_router
 
 
 def create_app() -> FastAPI:
@@ -24,6 +28,10 @@ def create_app() -> FastAPI:
     app.include_router(tasks_router)
     app.include_router(dashboard_router)
     app.include_router(audit_router)
+    app.include_router(ai_documents_router)
+    app.include_router(ai_chat_router)
+    app.include_router(ai_agents_router)
+    app.include_router(ai_runs_router)
 
     return app
 

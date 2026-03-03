@@ -12,13 +12,16 @@ from sqlalchemy import select
 
 from app.db.session import get_db
 from app.core.deps import get_current_user
+from app.core.logging import new_trace_id
 from app.models.user import User
 from app.models.task import Task, TaskStatus
 from app.models.workspace import WorkspaceRole
 from app.schemas.task import TaskCreateIn, TaskOut, TaskUpdateIn
+from app.schemas.ai_agent import AITaskDraftRequestIn, AITaskDraftResponseOut, CreateTasksFromDraftIn
 from app.services.projects import get_project_and_require_role
 from app.services.cache import cache_delete, dashboard_key
 from app.services.audit import write_audit
+from app.services.tools.create_task_draft import create_task_draft
 
 router = APIRouter(tags=["tasks"])
 
@@ -162,6 +165,7 @@ def update_task(
 ):
     # ✅ 写操作：至少 MEMBER
     t, workspace_id = _load_task_and_require_role(task_id, WorkspaceRole.MEMBER, db, user)
+    old_status = t.status.value
 
     if payload.description is not None:
         t.description = payload.description
@@ -180,7 +184,6 @@ def update_task(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid status. Use TODO/DOING/DONE/BLOCKED",
             )
-    old_status = t.status.value
     db.commit()
     db.refresh(t)
     write_audit(
@@ -209,3 +212,89 @@ def update_task(
         created_at=t.created_at,
         updated_at=t.updated_at,
     )
+
+
+@router.post("/projects/{project_id}/tasks/ai-draft", response_model=AITaskDraftResponseOut)
+def generate_task_draft(
+    project_id: int,
+    payload: AITaskDraftRequestIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    project = get_project_and_require_role(project_id, WorkspaceRole.MEMBER, db, user)
+    trace_id = new_trace_id()
+    result = create_task_draft(
+        db,
+        workspace_id=project.workspace_id,
+        project_id=project_id,
+        requirement=payload.requirement,
+        document_ids=payload.document_ids,
+    )
+    write_audit(
+        db=db,
+        workspace_id=project.workspace_id,
+        actor_id=user.id,
+        action="TASK_AI_DRAFT",
+        entity_type="project",
+        entity_id=project_id,
+        meta={"trace_id": trace_id, "draft_count": len(result["drafts"])},
+    )
+    db.commit()
+    return AITaskDraftResponseOut(
+        project_id=project_id,
+        trace_id=trace_id,
+        drafts=result["drafts"],
+    )
+
+
+@router.post("/projects/{project_id}/tasks/from-draft", response_model=list[TaskOut], status_code=201)
+def create_tasks_from_draft(
+    project_id: int,
+    payload: CreateTasksFromDraftIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    project = get_project_and_require_role(project_id, WorkspaceRole.MEMBER, db, user)
+    created: list[Task] = []
+    for draft in payload.drafts:
+        task = Task(
+            project_id=project_id,
+            title=draft.title,
+            description=draft.description,
+            priority=draft.priority,
+            due_date=draft.due_date,
+            status=TaskStatus.TODO,
+        )
+        db.add(task)
+        created.append(task)
+
+    db.commit()
+    for task in created:
+        db.refresh(task)
+        write_audit(
+            db=db,
+            workspace_id=project.workspace_id,
+            actor_id=user.id,
+            action="TASK_CREATE_FROM_DRAFT",
+            entity_type="task",
+            entity_id=task.id,
+            meta={"title": task.title, "project_id": task.project_id},
+        )
+    db.commit()
+    cache_delete(dashboard_key(project.workspace_id))
+
+    return [
+        TaskOut(
+            id=task.id,
+            project_id=task.project_id,
+            title=task.title,
+            description=task.description,
+            status=task.status.value,
+            priority=task.priority,
+            assignee_id=task.assignee_id,
+            due_date=task.due_date,
+            created_at=task.created_at,
+            updated_at=task.updated_at,
+        )
+        for task in created
+    ]

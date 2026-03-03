@@ -5,3 +5,5 @@ from app.models.workspace import Workspace, WorkspaceMember, Invite  # noqa: F40
 from app.models.project import Project  # noqa: F401
 from app.models.task import Task  # noqa: F401
 from app.models.audit import AuditLog  # noqa: F401
+from app.models.document import Document, DocumentChunk  # noqa: F401
+from app.models.agent_run import AgentRun, AgentMessage  # noqa: F401

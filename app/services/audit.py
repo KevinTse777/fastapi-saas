@@ -16,7 +16,7 @@ def write_audit(
     entity_type: str,
     entity_id: int | None = None,
     meta: dict | None = None,
-) -> None:
+) -> AuditLog:
     """
     写入一条审计日志（不返回值）
     - 建议在 db.commit() 成功后调用（或同一事务内一起 commit）
@@ -30,3 +30,4 @@ def write_audit(
         meta=meta,
     )
     db.add(log)
+    return log
